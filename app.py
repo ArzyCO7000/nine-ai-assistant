@@ -1,4 +1,4 @@
-from flask import Flask, request, send_file
+from flask import Flask, request
 from twilio.twiml.voice_response import VoiceResponse
 import openai
 import requests
@@ -56,10 +56,9 @@ def generate_tts(text):
     with open("response.mp3", "wb") as f:
         f.write(tts_response.content)
 
-    return "https://yourdomain.com/response.mp3"  # We will replace this with a real file host later
+    return "https://yourdomain.com/response.mp3"
 
 if __name__ == "__main__":
     import os
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
-
