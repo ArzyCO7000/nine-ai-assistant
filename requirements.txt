@@ -3,3 +3,4 @@ openai
 twilio
 requests
 pydub
+ffmpeg-python
