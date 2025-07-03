@@ -1,13 +1,10 @@
 import os
 from flask import Flask, request, send_file
 from twilio.twiml.voice_response import VoiceResponse
-from openai import OpenAI
+import openai
 import requests
 
-from pydub import AudioSegment
-
 app = Flask(__name__)
-client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 @app.route("/voice", methods=["POST"])
 def voice():
@@ -27,37 +24,59 @@ def transcription():
     user_input = transcribe_audio(recording_url)
     reply = gpt_response(user_input)
     generate_voice(reply)
-    
+
     resp = VoiceResponse()
     resp.play("https://nine-ai-assistant.onrender.com/response.mp3")
     return str(resp)
-
-def gpt_response(user_input):
-    system_prompt = "You are a polite and helpful phone assistant for a classy rooftop restaurant in London called Nine."
-    response = client.chat.completions.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_input}
-        ]
-    )
-    return response.choices[0].message.content.strip()
 
 def transcribe_audio(url):
     audio = requests.get(url)
     with open("input.mp3", "wb") as f:
         f.write(audio.content)
 
-    audio_data = open("input.mp3", "rb")
+    client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     transcript = client.audio.transcriptions.create(
         model="whisper-1",
-        file=audio_data
+        file=open("input.mp3", "rb")
     )
     return transcript.text
 
+def gpt_response(user_input):
+    client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+    system_prompt = """
+    You are a friendly and classy assistant for the restaurant Nine, located on the top floor of Radisson Red Hotel in North Greenwich, London.
+
+    Your job is to answer caller questions about:
+    - bookings (make, change, cancel)
+    - running late
+    - directions and parking
+    - opening hours, last order times
+    - dress code (smart casual, no tracksuits)
+    - age policy (18+ after 8pm, children welcome before)
+    - shisha (not available)
+    - alcohol (served)
+    - halal status (yes, all meats are halal)
+    - private events and large group bookings
+
+    If a customer is rude, vague or confused — stay polite but direct.
+
+    Don’t waffle. Keep answers short, helpful and in a classy tone.
+    """
+
+    completion = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_input}
+        ]
+    )
+    return completion.choices[0].message.content.strip()
+
 def generate_voice(text):
-    eleven_api = os.environ["ELEVENLABS_API_KEY"]
-    voice_id = os.environ["ELEVENLABS_VOICE_ID"]
+    eleven_api = os.getenv("ELEVEN_API_KEY")
+    voice_id = os.getenv("ELEVEN_VOICE_ID")
+
     headers = {
         "xi-api-key": eleven_api,
         "Content-Type": "application/json"
@@ -80,6 +99,6 @@ def generate_voice(text):
     with open("response.mp3", "wb") as f:
         f.write(response.content)
 
-@app.route("/response.mp3", methods=["GET"])
+@app.route("/response.mp3")
 def serve_audio():
     return send_file("response.mp3", mimetype="audio/mpeg")
